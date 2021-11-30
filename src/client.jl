@@ -1,7 +1,3 @@
-using URIs
-using HTTP
-using JSON
-
 function netloc(uri::URI)
   @assert !isempty(uri.host)
   
@@ -48,9 +44,9 @@ end
 
 function Base.pop!(c::TokenCache, key::String, default=nothing)
   try
-    value = c[key]
+    return c[key]
   catch e
-    value = default
+    return default
   finally
     rm(joinpath(c.directory, key), force=true)
   end
@@ -140,7 +136,7 @@ function HTTP.get(c::Context, path, query=Dict{String,String}(), headers=Dict{St
   return HTTP.get(url, headers, kwargs...)
 end
 
-function search(f, c::Context, path="", query=Dict{String,String}(); limit=Inf)
+function _search(c::Context, path="", query=Dict{String,String}(); limit=Inf)
   path = "/search/" * path
   
   Channel(Inf, spawn=true) do ch
@@ -155,7 +151,7 @@ function search(f, c::Context, path="", query=Dict{String,String}(); limit=Inf)
       @assert "links" in keys(page_data)
       
       for x in page_data["data"]
-        put!(ch, f(x))
+        put!(ch, x)
         n += 1
         n == limit && break
       end
@@ -169,4 +165,14 @@ function search(f, c::Context, path="", query=Dict{String,String}(); limit=Inf)
     end
     close(ch)
   end
+end
+
+function visit(f, c::TiledClient.Context, path="", query=Dict{String,String}(); limit=Inf)
+  data = _search(c, path, query; limit)
+  results = Channel(Inf)
+  @sync for x in data
+    @async put!(results, f(x))
+  end
+  close(results)
+  return collect(results)
 end
