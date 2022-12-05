@@ -74,8 +74,24 @@ function authenticate!(c::Context)
   @assert r.status == 200
   data = JSON.parse(String(r.body))
   auth = data["authentication"]
-  @assert auth["type"] == "external"
+  @assert haskey(auth, "providers")
   
+  providers = auth["providers"]
+  provider = providers[1]
+  if provider["mode"] == "password"
+    password_auth_endpoint = provider["links"]["auth_endpoint"]
+    HTTP.post(
+      password_auth_endpoint,
+      body=Dict(
+        "username" => "",
+        "password" => ""
+      )
+    )
+  else
+    # don't know what to do!
+  end
+
+
   endpoint = auth["endpoint"]
   
   println("visit: $endpoint")
