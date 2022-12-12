@@ -19,7 +19,7 @@ jobs:
         with:
           repository: 'bluesky/tiled.git'
           fetch-depth: '0'
-          path: 'tiled-server'
+          path: 'tiled'
           ref: 'main'
 
       - name: install python
@@ -28,7 +28,7 @@ jobs:
           python-version: '3.9' 
 
       - name: install tiled
-        run: python -m pip install ./tiled-server/tiled
+        run: python -m pip install tiled
 
       - name: start tiled
         run: ALICE_PASSWORD=secret1 BOB_PASSWORD=secret2 CARA_PASSWORD=secret3 tiled serve config ./tiled-server/tiled/example_configs/toy_authentication.yml &
