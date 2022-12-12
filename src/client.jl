@@ -56,38 +56,85 @@ end
 
 struct Context
   base::URI
-  tokens::Dict{String, String}
+  tokens::Dict{String, Any}
   token_cache::TokenCache
+  initial_connection_info::Dict{String, Any}
   
   function Context(base::URI)
-    tokens = Dict{String,String}()
+    tokens = Dict{String,Any}()
     directory = joinpath("~/.config/tiled/tokens", netloc(base))
     token_cache = TokenCache(directory)
-    new(base, tokens, token_cache)
+    initial_connection_info = Dict{String, Any}()
+    new(base, tokens, token_cache, initial_connection_info)
   end
 end
 
 Context(s::String) = Context(URI(s))
 
-function authenticate!(c::Context)
-  r = HTTP.get(c.base)
-  @assert r.status == 200
-  data = JSON.parse(String(r.body))
-  auth = data["authentication"]
-  @assert auth["type"] == "external"
+
+function _make_initial_connection(c::Context)
+  initial_connection_response = HTTP.get(c.base)
+  @assert initial_connection_response.status == 200
+  initial_connection_info = JSON.parse(String(initial_connection_response.body))
+  return initial_connection_info, initial_connection_response
+end
+
+
+function _ask_for_user_credentials(;username::String=nothing, password::String=nothing)
+  # return a Dict("username"=>"", "password"=>"")
+  if isnothing(username)
+      print("username: ")
+      username = readline()
+  end
+  if isnothing(password)
+      password_buffer = Base.getpass("password:")
+      password = read(password_buffer, String)
+      Base.shred!(password_buffer)
+  end
+
+  return Dict{String, String}(
+    "username" => username,
+    "password" => password
+  )
+end
+
+
+function _post_password_auth_credentials(;auth_endpoint, user_credentials)
+  password_auth_response = HTTP.post(
+    auth_endpoint,
+    body=user_credentials,
+  )
+
+  return password_auth_response
+end
+
+
+function authenticate!(c::Context; username=nothing, password=nothing)
+  initial_connection_info, _ = _make_initial_connection(c)
+  empty!(c.initial_connection_info)
+  merge!(c.initial_connection_info, initial_connection_info)
+
+  auth_info = c.initial_connection_info["authentication"]  
+  providers_info = auth_info["providers"]
+  # what if more than one provider?
+  provider_info = providers_info[1]
+  if provider_info["mode"] == "password"
+    password_auth_response = _post_password_auth_credentials(
+      auth_endpoint=provider_info["links"]["auth_endpoint"],
+      user_credentials=_ask_for_user_credentials(username=username, password=password)
+    )
+    auth_tokens_info = JSON.parse(String(password_auth_response.body))
+    merge!(c.tokens, auth_tokens_info)
+
+    # is this necessary for password mode?
+    # refresh_token = replace(refresh_token, "\""=>"")
+    #auth_tokens = refresh!(c, auth_tokens_data)
+
+  else
+    # don't know what to do!
+  end
   
-  endpoint = auth["endpoint"]
-  
-  println("visit: $endpoint")
-  
-  buffer = Base.getpass("access code:")
-  refresh_token = read(buffer, String)
-  Base.shred!(buffer)
-  refresh_token = replace(refresh_token, "\""=>"")
-  
-  tokens = refresh!(c, refresh_token)
-  
-  return tokens
+  return auth_tokens_info
 end
 
 function refresh!(c::Context, refresh_token=nothing)
