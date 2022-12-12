@@ -12,11 +12,12 @@ jobs:
         julia-arch: [x64, x86]
 
     steps:
-      - name: Checkout Tiled
-        uses: actions/checkout@v2
+      - name: checkout tiled
+        uses: actions/checkout@v3
         with:
-          repository: bluesky/tiled.git
-          path: './tiled-server'
+          repository: 'bluesky/tiled.git'
+          fetch-depth: '0'
+          path: 'tiled-server'
 
       - name: install python
         uses: actions/setup-python@v4
@@ -28,6 +29,8 @@ jobs:
 
       - name: start tiled
         run: ALICE_PASSWORD=secret1 BOB_PASSWORD=secret2 CARA_PASSWORD=secret3 tiled serve config ./tiled-server/tiled/example_configs/toy_authentication.yml &
+
+      - uses: actions/checkout@v2
 
       - uses: julia-actions/setup-julia@v1
         with:
