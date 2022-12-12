@@ -30,7 +30,7 @@ jobs:
         run: python -m pip install tiled[all]
 
       - name: start tiled
-        run: ALICE_PASSWORD=secret1 BOB_PASSWORD=secret2 CARA_PASSWORD=secret3 tiled serve config ./tiled-server/tiled/example_configs/toy_authentication.yml &
+        run: ALICE_PASSWORD=secret1 BOB_PASSWORD=secret2 CARA_PASSWORD=secret3 tiled serve config tiled/example_configs/toy_authentication.yml &
 
       - uses: julia-actions/setup-julia@v1
         with:
